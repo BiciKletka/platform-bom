@@ -1,0 +1,16 @@
+# Allowlist for the OSV-Scanner pull-request gate (.github/workflows/ci.yml).
+#
+# The gate fails a PR on any High/Critical (CVSS >= 7.0, or unknown) finding in the resolved,
+# runtime Maven dependency set. A finding that cannot be fixed (no patched release exists) may be
+# listed here, and only with all of:
+#   - id          the GHSA/CVE id as osv-scanner prints it
+#   - ignoreUntil a date at most 90 days out; the gate fails when the date passes or is too far
+#   - reason      why it does not apply or how it is mitigated, reviewed in the PR that adds it
+# Nothing else may suppress a finding: the gate fails on any other key in this file, notably
+# [[PackageOverrides]] (ignore = true), which osv-scanner honors without a reason or an expiry.
+# Prefer a fix (a pin in platform-dependencies) to an entry here.
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2027-01-05
+# reason = "Only reachable through DIGEST auth, which this service does not configure; no patched release yet."

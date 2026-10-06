@@ -18,13 +18,19 @@ remotemonit-gateway). One reactor, three published artifacts, one version:
 Versions are `0.<series>.<n>` (for example `0.1.3`). `.platform-series` holds the `MAJOR.MINOR` pair, and every
 push to `main` that changes more than docs publishes `<series>.<last+1>` to this repository's GitHub Packages
 Maven registry and pushes the tag `v<version>` (`publish.yml`). Pushes that only touch `docs/**`, `*.md`,
-`.gitattributes`, `.gitignore` or `.dockerignore` publish nothing.
+`.gitattributes`, `.gitignore`, `.dockerignore` or the CI-only files (`ci/**`, `scripts/**`, `.github/scripts/**`,
+`.github/workflows/ci.yml`, `.github/dependabot.yml`, `osv-scanner.toml`) publish nothing.
 
 - The tags are the record of what shipped (`git ls-remote --tags origin 'v*'`); the Packages tab shows the latest.
 - Publishing is serialized. After several quick merges GitHub cancels the pending middle run; the last run
   contains those commits, so no change is lost, but a version number is skipped. That is expected.
 - While the platform is at `0.x`, treat a series bump as breaking: edit `.platform-series` in the same PR as the
   breaking change. The first version of a new series is `<series>.1`.
+
+Every Dependabot `github-actions` bump to `publish.yml` mints a content-identical version, which reaches the
+services as a no-op Dependabot PR; merge or close it. The published `platform-parent` keeps
+`<revision>0.0.0-SNAPSHOT</revision>` as an inherited property: a service must never use `${revision}` without
+defining it, or it silently gets `0.0.0-SNAPSHOT`.
 
 ## Upgrading a service
 
@@ -41,6 +47,19 @@ Every other version bump (a Tomcat patch, Boot, Jackson) is made once, here, and
   then tags `v<version>`. If the tag push fails after a successful deploy, a re-run computes the same number and
   fails with `409`: do not re-run, push the missing tag by hand
   (`git tag -a v<version> -m "platform-bom <version>" <sha> && git push origin v<version>`), then re-run.
+  `-DdeployAtEnd=true` uploads only after every module built, but the upload itself is still module by module.
+  If it fails halfway (for example `platform-parent` after `platform-bom` went up), a re-run computes the same
+  number and gets `409` on the modules already uploaded. Recover the same way: push the tag `v<version>` for the
+  failed run's SHA by hand, then re-run, which publishes the next number. The half-published
+  version may be incomplete, so a service must not adopt it (Dependabot reads the registry, so it can offer it:
+  close that PR).
+
+## Dependabot and the synced properties
+
+`lombok.version` and `mapstruct.version` in `platform-parent` are referenced only inside
+`annotationProcessorPaths`, which Dependabot's Maven parser may not treat as a dependency. A Lombok or MapStruct
+bump can then touch only `platform-dependencies` and fail `scripts/check-synced-properties.sh`. CI catches it and
+nothing ships wrong, but the PR needs a manual edit of the same property in `platform-parent/pom.xml`.
 
 ## Local token setup
 
@@ -62,5 +81,6 @@ and a `github` server entry in `~/.m2/settings.xml`:
 </server>
 ```
 
-The repository is private: the token's user needs read access to it, and each consuming repository needs the
-package access grant (package settings, "Manage Actions access") for its CI to read with `GITHUB_TOKEN`.
+The repository is public, so any classic token with `read:packages` reads it. A consuming repository's CI needs
+no setup: it reads with its own `GITHUB_TOKEN` and `packages: read`. Dependabot cannot use that token and takes a
+classic personal access token as a repository-level Dependabot secret (see `docs/service-template.md`).

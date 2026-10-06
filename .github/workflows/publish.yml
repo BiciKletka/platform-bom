@@ -1,0 +1,104 @@
+# Publishes platform-bom, platform-dependencies and platform-parent to the GitHub Packages
+# Maven registry of this repository on every push to main.
+#
+# Version: 0.<series>.<n>. <series> is the human-owned compatibility pair in .platform-series;
+# <n> is one more than the highest v<series>.<n> tag already pushed, so every run mints a
+# version that has never been published (GitHub Packages refuses to overwrite a release
+# coordinate with 409, and re-running a workflow run must not collide either). The tag is the
+# record of what shipped; main's POMs never say (they carry ${revision}).
+#
+# Rules this depends on:
+#   - main has a linear-history branch rule, so the tag counter cannot be rewound by a
+#     force-push (a rewound branch still cannot reuse a tag, but its history would lie).
+#   - concurrency below is NOT cancel-in-progress: two runs computing the same <n> would
+#     race for the same coordinate; serialising them makes the second compute n+1.
+#   - The registry URL is the repository's own; the GITHUB_TOKEN of this workflow has
+#     packages:write on it. The repository is public: a consumer repository's CI reads the packages
+#     with its own GITHUB_TOKEN (packages: read; a token is still required, anonymous gets 401), and
+#     Dependabot, a laptop or omen use a classic personal token with read:packages (see README.md).
+name: publish
+
+on:
+  push:
+    branches: [main]
+    # A change that cannot alter the published POMs does not mint a version.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.dockerignore'
+      # CI-only files: nothing that ends up in a published POM.
+      - '.github/dependabot.yml'
+      - '.github/workflows/ci.yml'
+      - '.github/scripts/**'
+      - 'ci/**'
+      - 'scripts/**'
+      - 'osv-scanner.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # push the version tag
+  packages: write   # deploy to this repository's Maven registry
+
+concurrency:
+  group: publish-platform-bom
+  cancel-in-progress: false
+
+env:
+  REGISTRY_URL: https://maven.pkg.github.com/${{ github.repository }}
+
+jobs:
+  publish:
+    # workflow_dispatch can be started on any ref; only main may mint a version.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch every tag (the version counter reads them)
+        run: git fetch --tags --force
+
+      - name: Compute the next version from the published tags
+        id: ver
+        run: |
+          set -euo pipefail
+          SERIES="$(tr -d ' \n\r' < .platform-series)"
+          [[ "$SERIES" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "::error::.platform-series must be MAJOR.MINOR, got '$SERIES'"; exit 1; }
+          # Numeric sort on the patch field: lexically, v0.1.9 sorts after v0.1.10.
+          LAST="$(git tag --list "v${SERIES}.*" | sed "s|^v${SERIES}\.||" | grep -E '^[0-9]+$' | sort -n | tail -1 || true)"
+          VERSION="${SERIES}.$(( ${LAST:-0} + 1 ))"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${VERSION} (last in series ${SERIES}: ${LAST:-none})" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          # Writes ~/.m2/settings.xml with one <server id="github"> whose credentials are read
+          # from the two environment variables named here at mvn time.
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Deploy to GitHub Packages
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          mvn -B -Drevision=${{ steps.ver.outputs.version }} -DdeployAtEnd=true clean deploy
+          -DaltDeploymentRepository=github::${{ env.REGISTRY_URL }}
+
+      - name: Tag the published version
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "platform-bom ${VERSION}"
+          git push origin "v${VERSION}"
+          echo "Tagged v${VERSION}" >> "$GITHUB_STEP_SUMMARY"
