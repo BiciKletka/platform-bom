@@ -89,7 +89,7 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
-          mvn -B -Drevision=${{ steps.ver.outputs.version }} clean deploy
+          mvn -B -Drevision=${{ steps.ver.outputs.version }} -DdeployAtEnd=true clean deploy
           -DaltDeploymentRepository=github::${{ env.REGISTRY_URL }}
 
       - name: Tag the published version

@@ -41,6 +41,11 @@ Every other version bump (a Tomcat patch, Boot, Jackson) is made once, here, and
   then tags `v<version>`. If the tag push fails after a successful deploy, a re-run computes the same number and
   fails with `409`: do not re-run, push the missing tag by hand
   (`git tag -a v<version> -m "platform-bom <version>" <sha> && git push origin v<version>`), then re-run.
+  `-DdeployAtEnd=true` uploads only after every module built, but the upload itself is still module by module.
+  If it fails halfway (for example `platform-parent` after `platform-bom` went up), a re-run computes the same
+  number and gets `409` on the modules already uploaded. Recover the same way: push the tag `v<version>` for the
+  failed run's SHA by hand, then re-run, which publishes the next number. The half-published version stays
+  unused: services never reference it, because Dependabot offers only tagged versions.
 
 ## Local token setup
 
