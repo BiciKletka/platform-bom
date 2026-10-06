@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.bicikletka</groupId>
+    <artifactId>platform-dependencies</artifactId>
+    <!-- CI-friendly version; see the root pom.xml for how it is computed and flattened. -->
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+
+    <name>BiciKletka Platform Dependencies (BOM)</name>
+    <description>
+        Pure bill of materials for the BiciKletka Java services: dependencyManagement only. The one
+        plugin below (flatten) bakes the CI-computed version into the published POM; it manages no
+        dependency and configures no build step a consumer could inherit (a BOM is imported, never
+        inherited). Every version is one property, so a single-line bump reaches every service.
+    </description>
+
+    <!-- Properties are kept in alphabetical order. Every version in this file is a property reference. -->
+    <properties>
+        <archunit.version>1.5.1</archunit.version>
+        <!-- AWS SDK v2: bici-media's object storage client is S3-compatible (MinIO dev, DO Spaces prod) -->
+        <aws-sdk.version>2.29.29</aws-sdk.version>
+        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+        <!-- Jackson 2 stays on the runtime classpath through springdoc's swagger-core (it generates the
+             OpenAPI document with it); Boot 4.1.1 manages 2.21.5, which has the same five advisories as
+             Jackson 3.1.5 (GHSA-7hhh-6rmp-j9qf, GHSA-p6pp-m3f8-5c89, GHSA-cxp5-3px4-pw24,
+             GHSA-q4xh-88c3-wmh7, GHSA-wv8q-qhhj-9h54), fixed in 2.21.7. Keep this pin until Jackson 2
+             leaves the runtime classpath (BiciKletka/bici-core#161). -->
+        <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+        <!-- Boot 4.1.1 manages Jackson 3.1.5 (same advisories as above); 3.1.7 fixes them. -->
+        <jackson-bom.version>3.1.7</jackson-bom.version>
+        <lombok.version>1.18.46</lombok.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <!-- the Eclipse Paho MQTT v3 client mqtt-gateway talks to the broker with -->
+        <paho.version>1.2.5</paho.version>
+        <revision>0.0.0-SNAPSHOT</revision>
+        <spring-boot.version>4.1.1</spring-boot.version>
+        <!-- the springdoc line built for Spring Boot 4 (2.x is for Boot 3) -->
+        <springdoc.version>3.1.1</springdoc.version>
+        <!-- Boot 4.1.1 manages Tomcat 11.0.24, which has published High/Critical advisories
+             (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5; fixed in 11.0.25). The
+             Boot BOM is imported, not inherited, so the override is a set of explicit entries. Remove
+             them and this property when a Boot release manages these versions or newer. -->
+        <tomcat.version>11.0.26</tomcat.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Entries here win over the imports below, and among the imports the first one wins:
+                 the two Jackson BOMs must stay ABOVE the spring-boot-dependencies import. -->
+            <dependency>
+                <groupId>tools.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson-2-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-core</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-el</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tomcat.embed</groupId>
+                <artifactId>tomcat-embed-websocket</artifactId>
+                <version>${tomcat.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.eclipse.paho</groupId>
+                <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+                <version>${paho.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten-clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
