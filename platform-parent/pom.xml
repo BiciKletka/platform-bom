@@ -78,6 +78,10 @@
                              endpoint answers 500 at request time), and SpEL #param references in
                              @PreAuthorize resolve to null and fail closed for every caller. -->
                         <parameters>true</parameters>
+                        <!-- A module's own annotationProcessorPaths replaces this list BY POSITION, and a
+                             versionless <path> inherits the version of the entry at the same index here
+                             (annotationProcessorPathsUseDepMgmt does not help: the merge fills the version
+                             in before the plugin sees it). Module-level paths must always carry a version. -->
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>

@@ -35,6 +35,13 @@ each with a comment saying why, and module plugins (executions, `argLine`). A mo
 Java release (the bifromq plugin) redefines the `java.version` property; one that must not inherit Boot's
 versions pins its own.
 
+A module that declares its own compiler `annotationProcessorPaths` replaces the parent's list **by position**
+(Maven merges the elements by index), and a `<path>` without a `<version>` takes the version of the parent's entry
+at the same index: a lone `mapstruct-processor` would be resolved at Lombok's `1.18.46` and fail. Always give
+every module-level path an explicit version, for example `${mapstruct.version}` (the parent defines
+`lombok.version` and `mapstruct.version`). `annotationProcessorPathsUseDepMgmt` was tried and does not change
+this: with it on, the same consumer still asked for `mapstruct-processor:1.18.46`.
+
 Commit `.mvn/ci-settings.xml`, a credential template and never a credential:
 
 ```xml
