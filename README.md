@@ -48,6 +48,13 @@ Every other version bump (a Tomcat patch, Boot, Jackson) is made once, here, and
   version may be incomplete, so a service must not adopt it (Dependabot reads the registry, so it can offer it:
   close that PR).
 
+## Dependabot and the synced properties
+
+`lombok.version` and `mapstruct.version` in `platform-parent` are referenced only inside
+`annotationProcessorPaths`, which Dependabot's Maven parser may not treat as a dependency. A Lombok or MapStruct
+bump can then touch only `platform-dependencies` and fail `scripts/check-synced-properties.sh`. CI catches it and
+nothing ships wrong, but the PR needs a manual edit of the same property in `platform-parent/pom.xml`.
+
 ## Local token setup
 
 GitHub's Maven registry needs a token even to read (anonymous requests get `401`, also for public repositories).
