@@ -56,13 +56,17 @@ Commit `.mvn/ci-settings.xml`, a credential template and never a credential:
 </settings>
 ```
 
-CI and Docker builds pass `-s .mvn/ci-settings.xml` with the two variables set; a laptop or omen keeps the same
-`<server>` in `~/.m2/settings.xml`.
+Docker builds pass `-s .mvn/ci-settings.xml` with the two variables set. GitHub Actions jobs use the settings
+`actions/setup-java` generates (`server-id`, `server-username`, `server-password`, see CI below) and need no
+`-s`. A laptop or omen keeps the same `<server>` in `~/.m2/settings.xml`.
 
 ## Dockerfile
 
 The parent comes from the registry, so the image build needs the token. It enters as a BuildKit secret, never
-an `ARG` (an `ARG` is recorded in the image history):
+an `ARG` (an `ARG` is recorded in the image history). Every Dockerfile stage that runs Maven needs the mount, not
+only the main service's: mqtt-gateway's `bifromq-auth-plugin/Dockerfile` `builder` stage runs
+`mvn -f bifromq-auth-plugin/pom.xml`, which reads the root POM and so the parent, and its build context must
+include the root `pom.xml` and `.mvn/ci-settings.xml`:
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -79,7 +83,8 @@ RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN \
     mvn -B -s .mvn/ci-settings.xml -pl <svc>-api -am clean package -DskipTests
 ```
 
-`docker build --secret id=gh_token,env=GITHUB_TOKEN .` builds it by hand. In `docker-compose.yml`:
+`docker build --secret id=gh_token,env=GITHUB_TOKEN --build-arg GITHUB_ACTOR=<your-login> .` builds it by
+hand; CI passes the real actor (below) rather than relying on the registry ignoring the username. In `docker-compose.yml`:
 
 ```yaml
 services:
@@ -114,11 +119,18 @@ steps:
     env:
       GITHUB_ACTOR: ${{ github.actor }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  - uses: docker/build-push-action@v7
+  - uses: docker/build-push-action@v6   # v7 also accepts `secrets:`; bump or keep v6
     with:
+      build-args: |
+        GITHUB_ACTOR=${{ github.actor }}
       secrets: |
         gh_token=${{ secrets.GITHUB_TOKEN }}
 ```
+
+Workflows to change in each service: `pr-validation` (build and OSV jobs), `staging-deployment` and
+`production-deployment` (image builds), and `dependency-graph.yml` (mqtt-gateway, bici-media,
+remotemonit-gateway). The dependency graph job runs Maven with only `contents: write` today; it also needs
+`packages: read` and the `setup-java` server credential above, or it fails with `401` on `platform-parent`.
 
 ## Dependabot
 
