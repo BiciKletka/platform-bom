@@ -44,8 +44,9 @@ Every other version bump (a Tomcat patch, Boot, Jackson) is made once, here, and
   `-DdeployAtEnd=true` uploads only after every module built, but the upload itself is still module by module.
   If it fails halfway (for example `platform-parent` after `platform-bom` went up), a re-run computes the same
   number and gets `409` on the modules already uploaded. Recover the same way: push the tag `v<version>` for the
-  failed run's SHA by hand, then re-run, which publishes the next number. The half-published version stays
-  unused: services never reference it, because Dependabot offers only tagged versions.
+  failed run's SHA by hand, then re-run, which publishes the next number. The half-published
+  version may be incomplete, so a service must not adopt it (Dependabot reads the registry, so it can offer it:
+  close that PR).
 
 ## Local token setup
 
