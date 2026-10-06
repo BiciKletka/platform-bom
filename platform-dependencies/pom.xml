@@ -27,7 +27,7 @@
              Jackson 3.1.5 (GHSA-7hhh-6rmp-j9qf, GHSA-p6pp-m3f8-5c89, GHSA-cxp5-3px4-pw24,
              GHSA-q4xh-88c3-wmh7, GHSA-wv8q-qhhj-9h54), fixed in 2.21.7. Keep this pin until Jackson 2
              leaves the runtime classpath (BiciKletka/bici-core#161). -->
-        <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+        <jackson-2-bom.version>2.22.3</jackson-2-bom.version>
         <!-- Boot 4.1.1 manages Jackson 3.1.5 (same advisories as above); 3.1.7 fixes them. -->
         <jackson-bom.version>3.1.7</jackson-bom.version>
         <lombok.version>1.18.46</lombok.version>
