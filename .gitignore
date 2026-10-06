@@ -1,0 +1,14 @@
+target/
+*.class
+*.jar
+.idea/
+*.iml
+.vscode/
+.DS_Store
+.env
+
+# flatten-maven-plugin output (the deployed POM is generated, never committed)
+.flattened-pom.xml
+
+# OSV gate output
+osv-results.json
