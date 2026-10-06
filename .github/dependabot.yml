@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # The imported BOMs (Spring Boot, Jackson, AWS SDK), the pinned libraries (Tomcat, springdoc, Lombok,
+  # MapStruct, ArchUnit, Paho) and the build plugins. Versions live in properties of the two POMs.
+  - package-ecosystem: maven
+    directories:
+      - /
+      - /platform-dependencies
+      - /platform-parent
+    schedule:
+      interval: daily
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      # platform-parent repeats these versions of platform-dependencies; one PR keeps them in step
+      # (scripts/check-synced-properties.sh fails CI otherwise).
+      synced-with-parent:
+        patterns:
+          - org.projectlombok:*
+          - org.mapstruct:*
+          - org.springframework.boot:*
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
