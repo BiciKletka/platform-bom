@@ -6,6 +6,9 @@ name: ci
 on:
   pull_request:
   workflow_dispatch:
+  # An advisory against an unchanged BOM surfaces here, not only in the services' own gates (dependency-scan).
+  schedule:
+    - cron: '0 6 * * 1'
 
 permissions:
   contents: read
@@ -16,6 +19,7 @@ concurrency:
 
 jobs:
   verify:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
