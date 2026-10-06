@@ -27,6 +27,7 @@
 
     <modules>
         <module>platform-dependencies</module>
+        <module>platform-parent</module>
     </modules>
 
     <build>

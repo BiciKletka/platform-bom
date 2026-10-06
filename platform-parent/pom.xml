@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- No parent: this POM is the top of the inheritance chain for every BiciKletka service. It is
+         deliberately not a spring-boot-starter-parent child, because the bifromq plugin module of
+         mqtt-gateway must not inherit Boot's managed versions (its pins match the broker image). -->
+    <groupId>io.github.bicikletka</groupId>
+    <artifactId>platform-parent</artifactId>
+    <!-- CI-friendly version; see the root pom.xml for how it is computed and flattened. -->
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+
+    <name>BiciKletka Platform Parent</name>
+    <description>
+        Shared parent for the BiciKletka Java services. Imports platform-dependencies for dependency
+        version management and centralizes the pluginManagement the services share (compiler with
+        -parameters and the annotation processors, Surefire, Failsafe, spring-boot-maven-plugin,
+        enforcer, CycloneDX).
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- The compiler release below reads this property, and a module that must target another
+             release redefines the PROPERTY (the bifromq plugin runs in the broker's Java 17), because
+             a maven.compiler.release property would not override the inherited <release> element. -->
+        <java.version>21</java.version>
+
+        <!-- The platform-dependencies version this parent imports is ${revision}, the property that
+             versions this POM, and nothing else may stand in for it: ${project.version} is evaluated
+             against the CONSUMING project, and a dedicated property would be overridable by a consumer
+             that declares one of the same name. What makes ${revision} safe is flatten-maven-plugin:
+             the published POM carries the resolved literal in <version> and in the import below. -->
+        <revision>0.0.0-SNAPSHOT</revision>
+        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+
+        <!-- A BOM import brings dependencyManagement but no properties, so the versions that plugin
+             configuration needs are repeated here. scripts/check-synced-properties.sh (run by ci.yml)
+             fails when lombok.version, mapstruct.version or spring-boot.version differ from
+             platform-dependencies. -->
+        <lombok.version>1.18.46</lombok.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <spring-boot.version>4.1.1</spring-boot.version>
+
+        <cyclonedx-maven-plugin.version>2.9.3</cyclonedx-maven-plugin.version>
+        <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+        <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+        <maven-failsafe-plugin.version>3.5.6</maven-failsafe-plugin.version>
+        <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
+        <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.github.bicikletka</groupId>
+                <artifactId>platform-dependencies</artifactId>
+                <version>${revision}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <release>${java.version}</release>
+                        <!-- spring-boot-starter-parent sets this and a BOM-based project has to ask for it:
+                             without the -parameters class-file attribute Spring MVC cannot resolve
+                             @PathVariable/@RequestParam names when the annotation omits them (every such
+                             endpoint answers 500 at request time), and SpEL #param references in
+                             @PreAuthorize resolve to null and fail closed for every caller. -->
+                        <parameters>true</parameters>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                                <version>${mapstruct.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+
+                <!-- Version only: no repackage execution is bound here, an executable jar is opt-in per module. -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>${maven-resources-plugin.version}</version>
+                </plugin>
+
+                <!-- Unit tests: surefire's default includes never match *IT.java. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                </plugin>
+
+                <!-- Version only: a service that wants integration tests binds the goals itself. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${maven-enforcer-plugin.version}</version>
+                </plugin>
+
+                <!-- The SBOM the OSV gate scans: exactly what ends up in the jar, test scope excluded.
+                     Run it without a lifecycle binding:
+                     mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom -->
+                <plugin>
+                    <groupId>org.cyclonedx</groupId>
+                    <artifactId>cyclonedx-maven-plugin</artifactId>
+                    <version>${cyclonedx-maven-plugin.version}</version>
+                    <configuration>
+                        <outputFormat>json</outputFormat>
+                        <outputName>bom</outputName>
+                        <includeTestScope>false</includeTestScope>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-platform-basics</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>[3.9.0,)</version>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>[21,)</version>
+                                </requireJavaVersion>
+                                <banDuplicatePomDependencyVersions/>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Bakes the CI-computed ${revision} into the POM that is installed and deployed.
+                 inherited=false is load-bearing: everything else in this block runs in every service,
+                 but flatten must run only on this reactor. A service versions itself however it likes
+                 and must not have its installed POM rewritten by a plugin it never asked for. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <inherited>false</inherited>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten-clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
