@@ -50,6 +50,8 @@ env:
 
 jobs:
   publish:
+    # workflow_dispatch can be started on any ref; only main may mint a version.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
