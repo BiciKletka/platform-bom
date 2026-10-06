@@ -3,7 +3,8 @@
 How a BiciKletka Java service (root `pom.xml`, Dockerfile, compose, CI, Dependabot) consumes
 `BiciKletka/platform-bom`. The repository is public, but GitHub Packages needs a token even to read, so every
 place that builds a service needs credentials; the sections below name each one. CI reads with the workflow's own
-`GITHUB_TOKEN`; Dependabot and laptops use a classic personal access token with `read:packages`.
+`GITHUB_TOKEN`; Dependabot and laptops use a token with `read:packages` (`gh auth token` after
+`gh auth refresh -s read:packages`, or a classic personal access token).
 
 ## Parent and registry
 
@@ -20,6 +21,14 @@ needs only the credential.
 </parent>
 
 <repositories>
+  <!-- Central first: POM-declared repositories are tried before the super-POM's central, so without this
+       every artifact is looked up (and mostly 404s) in the GitHub registry first. Resolution is identical,
+       with about 4x fewer registry lookups on a cold repository. -->
+  <repository>
+    <id>central</id>
+    <url>https://repo.maven.apache.org/maven2</url>
+    <snapshots><enabled>false</enabled></snapshots>
+  </repository>
   <repository>
     <id>github</id>
     <url>https://maven.pkg.github.com/BiciKletka/platform-bom</url>
@@ -30,7 +39,9 @@ needs only the credential.
 
 Remove from the service's POM everything the parent now owns: the `spring-boot-dependencies`, Jackson and AWS
 BOM imports, the Tomcat entries, the Lombok, MapStruct, springdoc, Paho and ArchUnit versions, and the
-compiler, resources, Surefire and `spring-boot-maven-plugin` management. Keep only service-specific pins,
+compiler, resources, Surefire and `spring-boot-maven-plugin` management. Remove the leftover
+`maven.compiler.source` / `maven.compiler.target` properties too (root and modules): the parent sets
+`maven.compiler.release`. Keep only service-specific pins,
 each with a comment saying why, and module plugins (executions, `argLine`). A module that must target another
 Java release (the bifromq plugin) redefines the `java.version` property; one that must not inherit Boot's
 versions pins its own.
@@ -120,17 +131,46 @@ steps:
       GITHUB_ACTOR: ${{ github.actor }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   - uses: docker/build-push-action@v6   # v7 also accepts `secrets:`; bump or keep v6
-    with:
+    with:                              # every build-push-action step, see below
       build-args: |
         GITHUB_ACTOR=${{ github.actor }}
       secrets: |
         gh_token=${{ secrets.GITHUB_TOKEN }}
 ```
 
-Workflows to change in each service: `pr-validation` (build and OSV jobs), `staging-deployment` and
-`production-deployment` (image builds), and `dependency-graph.yml` (mqtt-gateway, bici-media,
-remotemonit-gateway). The dependency graph job runs Maven with only `contents: write` today; it also needs
+Workflows to change in each service: `pr-validation` (build, OSV and Qodana jobs), `staging-deployment`, and
+`dependency-graph.yml` (mqtt-gateway, bici-media, remotemonit-gateway). Add the `build-args` and `secrets` above
+to **every** `docker/build-push-action` step: staging builds an image on every merge (`build-and-push`) and has a
+second step for the release-tag fallback (`release-tag`); a step left out fails with `401` the first time it runs.
+`production-deployment` promotes by digest and builds nothing, so it needs no change. The dependency graph job runs Maven with only `contents: write` today; it also needs
 `packages: read` and the `setup-java` server credential above, or it fails with `401` on `platform-parent`.
+
+### Qodana
+
+The `qodana` job's IntelliJ Maven import also needs `platform-parent`, and the container has no credential (the
+registry answers `401` anonymously), so the import cannot resolve it and "No new problems" says less than it
+looks. Give the job `packages: read`, pass the credential into the container, and install the settings file there:
+
+```yaml
+  qodana:
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: JetBrains/qodana-action@v2026.1
+        with:
+          args: --env,GITHUB_ACTOR=${{ github.actor }},--env,GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+```
+
+```yaml
+# qodana.yaml
+bootstrap: mkdir -p ~/.m2 && cp .mvn/ci-settings.xml ~/.m2/settings.xml
+```
+
+The log does not say whether the import resolved the parent (`upload-result: false`), which is why this is
+applied without a before/after report. A repository whose Qodana job already shows a resolved import can skip it.
 
 ## Dependabot
 
@@ -175,7 +215,7 @@ gh auth refresh -h github.com -s read:packages          # laptop, once
 export GITHUB_ACTOR=<your-login> GITHUB_TOKEN="$(gh auth token)"
 ```
 
-and the `github` `<server>` entry above in `~/.m2/settings.xml`. On omen the token lives in a file the user
+and the `github` `<server>` entry above in `~/.m2/settings.xml` (the token needs `read:packages`). On omen the token lives in a file the user
 creates and agents never read; the build runner and `redeploy.sh` load it into `GITHUB_TOKEN` for the Maven
 and `docker compose build` calls. Check access (prints `200`):
 
