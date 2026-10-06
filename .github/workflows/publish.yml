@@ -13,9 +13,9 @@
 #   - concurrency below is NOT cancel-in-progress: two runs computing the same <n> would
 #     race for the same coordinate; serialising them makes the second compute n+1.
 #   - The registry URL is the repository's own; the GITHUB_TOKEN of this workflow has
-#     packages:write on it. The repository is private: a consumer repository reads the packages with
-#     its own GITHUB_TOKEN once the package settings grant it access ("Manage Actions access"), and a
-#     laptop or omen uses a personal token with read:packages (see README.md).
+#     packages:write on it. The repository is public: a consumer repository's CI reads the packages
+#     with its own GITHUB_TOKEN (packages: read; a token is still required, anonymous gets 401), and
+#     Dependabot, a laptop or omen use a classic personal token with read:packages (see README.md).
 name: publish
 
 on:

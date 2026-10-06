@@ -1,8 +1,9 @@
 # Service template: inheriting platform-bom
 
 How a BiciKletka Java service (root `pom.xml`, Dockerfile, compose, CI, Dependabot) consumes
-`BiciKletka/platform-bom`. The registry is private and GitHub Packages needs a token even to read, so every
-place that builds a service needs credentials; the sections below name each one.
+`BiciKletka/platform-bom`. The repository is public, but GitHub Packages needs a token even to read, so every
+place that builds a service needs credentials; the sections below name each one. CI reads with the workflow's own
+`GITHUB_TOKEN`; Dependabot and laptops use a classic personal access token with `read:packages`.
 
 ## Parent and registry
 
@@ -86,9 +87,8 @@ secrets:
 
 ## CI (GitHub Actions)
 
-The workflow's own `GITHUB_TOKEN` reads the package once this repository's package settings grant the service
-repository access ("Manage Actions access", read). The job needs `packages: read` (`write` where it also pushes
-to ghcr).
+The workflow's own `GITHUB_TOKEN` reads the package: this repository is public, so no per-package or
+per-repository grant exists or is needed. The job needs `packages: read` (`write` where it also pushes to ghcr).
 
 ```yaml
 permissions:
@@ -116,9 +116,10 @@ steps:
 ## Dependabot
 
 Each service keeps `platform-parent` current with `.github/dependabot.yml`, read from the default branch. A
-Dependabot run has no `GITHUB_TOKEN` with package access, so the registry credentials are org-level
-**Dependabot** secrets `PACKAGES_READ_USER` and `PACKAGES_READ_TOKEN` (a classic personal access token with
-`read:packages`):
+Dependabot run has no `GITHUB_TOKEN` it can read packages with, so the registry credentials are
+**repository-level Dependabot secrets** `PACKAGES_READ_USER` and `PACKAGES_READ_TOKEN` (a classic personal
+access token with `read:packages`), set in each service repository (Settings, Secrets and variables, Dependabot).
+Do not use org-level secrets: they are unreliable for private repositories on the Free plan.
 
 ```yaml
 version: 2

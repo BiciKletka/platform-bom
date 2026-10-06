@@ -62,5 +62,6 @@ and a `github` server entry in `~/.m2/settings.xml`:
 </server>
 ```
 
-The repository is private: the token's user needs read access to it, and each consuming repository needs the
-package access grant (package settings, "Manage Actions access") for its CI to read with `GITHUB_TOKEN`.
+The repository is public, so any classic token with `read:packages` reads it. A consuming repository's CI needs
+no setup: it reads with its own `GITHUB_TOKEN` and `packages: read`. Dependabot cannot use that token and takes a
+classic personal access token as a repository-level Dependabot secret (see `docs/service-template.md`).
