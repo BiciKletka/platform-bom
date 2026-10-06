@@ -1,0 +1,168 @@
+# Service template: inheriting platform-bom
+
+How a BiciKletka Java service (root `pom.xml`, Dockerfile, compose, CI, Dependabot) consumes
+`BiciKletka/platform-bom`. The registry is private and GitHub Packages needs a token even to read, so every
+place that builds a service needs credentials; the sections below name each one.
+
+## Parent and registry
+
+The root `pom.xml` names `platform-parent` by a literal, published version (a `v*` tag of this repository) and
+the registry it comes from. A POM's own `<repositories>` resolves its parent on Maven 3.9, so `settings.xml`
+needs only the credential.
+
+```xml
+<parent>
+  <groupId>io.github.bicikletka</groupId>
+  <artifactId>platform-parent</artifactId>
+  <version>0.1.1</version> <!-- bumped by Dependabot -->
+  <relativePath/>
+</parent>
+
+<repositories>
+  <repository>
+    <id>github</id>
+    <url>https://maven.pkg.github.com/BiciKletka/platform-bom</url>
+    <snapshots><enabled>false</enabled></snapshots>
+  </repository>
+</repositories>
+```
+
+Remove from the service's POM everything the parent now owns: the `spring-boot-dependencies`, Jackson and AWS
+BOM imports, the Tomcat entries, the Lombok, MapStruct, springdoc, Paho and ArchUnit versions, and the
+compiler, resources, Surefire and `spring-boot-maven-plugin` management. Keep only service-specific pins,
+each with a comment saying why, and module plugins (executions, `argLine`). A module that must target another
+Java release (the bifromq plugin) redefines the `java.version` property; one that must not inherit Boot's
+versions pins its own.
+
+Commit `.mvn/ci-settings.xml`, a credential template and never a credential:
+
+```xml
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <servers>
+    <server>
+      <id>github</id>
+      <username>${env.GITHUB_ACTOR}</username>
+      <password>${env.GITHUB_TOKEN}</password>
+    </server>
+  </servers>
+</settings>
+```
+
+CI and Docker builds pass `-s .mvn/ci-settings.xml` with the two variables set; a laptop or omen keeps the same
+`<server>` in `~/.m2/settings.xml`.
+
+## Dockerfile
+
+The parent comes from the registry, so the image build needs the token. It enters as a BuildKit secret, never
+an `ARG` (an `ARG` is recorded in the image history):
+
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM maven:3.9-eclipse-temurin-21 AS builder
+WORKDIR /build
+ARG GITHUB_ACTOR=docker-build
+COPY .mvn/ci-settings.xml .mvn/ci-settings.xml
+COPY pom.xml .
+# ... COPY each module's pom.xml
+RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN \
+    mvn -B -s .mvn/ci-settings.xml -pl <svc>-api -am dependency:go-offline
+# ... COPY each module's src
+RUN --mount=type=secret,id=gh_token,env=GITHUB_TOKEN \
+    mvn -B -s .mvn/ci-settings.xml -pl <svc>-api -am clean package -DskipTests
+```
+
+`docker build --secret id=gh_token,env=GITHUB_TOKEN .` builds it by hand. In `docker-compose.yml`:
+
+```yaml
+services:
+  <svc>:
+    build:
+      context: .
+      secrets: [gh_token]
+secrets:
+  gh_token:
+    environment: GITHUB_TOKEN        # or `file: ${GH_TOKEN_FILE}` on a host that keeps the token in a file
+```
+
+## CI (GitHub Actions)
+
+The workflow's own `GITHUB_TOKEN` reads the package once this repository's package settings grant the service
+repository access ("Manage Actions access", read). The job needs `packages: read` (`write` where it also pushes
+to ghcr).
+
+```yaml
+permissions:
+  contents: read
+  packages: read
+steps:
+  - uses: actions/setup-java@v5
+    with:
+      distribution: temurin
+      java-version: '21'
+      cache: maven
+      server-id: github
+      server-username: GITHUB_ACTOR
+      server-password: GITHUB_TOKEN
+  - run: mvn -B verify
+    env:
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  - uses: docker/build-push-action@v7
+    with:
+      secrets: |
+        gh_token=${{ secrets.GITHUB_TOKEN }}
+```
+
+## Dependabot
+
+Each service keeps `platform-parent` current with `.github/dependabot.yml`, read from the default branch. A
+Dependabot run has no `GITHUB_TOKEN` with package access, so the registry credentials are org-level
+**Dependabot** secrets `PACKAGES_READ_USER` and `PACKAGES_READ_TOKEN` (a classic personal access token with
+`read:packages`):
+
+```yaml
+version: 2
+registries:
+  platform-bom:
+    type: maven-repository
+    url: https://maven.pkg.github.com/BiciKletka/platform-bom
+    username: ${{secrets.PACKAGES_READ_USER}}
+    password: ${{secrets.PACKAGES_READ_TOKEN}}
+updates:
+  - package-ecosystem: maven
+    directory: /
+    registries:
+      - platform-bom
+    schedule:
+      interval: daily
+    allow:
+      - dependency-name: io.github.bicikletka:platform-parent
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: build
+    labels:
+      - dependencies
+```
+
+`allow` limits it to the parent: every other version bump is made once, in platform-bom. A series bump
+(`0.1` to `0.2`) arrives like any other version and is breaking while the platform is at `0.x`; its CI result is
+the signal.
+
+## Local setup (laptop, omen)
+
+```bash
+gh auth refresh -h github.com -s read:packages          # laptop, once
+export GITHUB_ACTOR=<your-login> GITHUB_TOKEN="$(gh auth token)"
+```
+
+and the `github` `<server>` entry above in `~/.m2/settings.xml`. On omen the token lives in a file the user
+creates and agents never read; the build runner and `redeploy.sh` load it into `GITHUB_TOKEN` for the Maven
+and `docker compose build` calls. Check access (prints `200`):
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -u "$GITHUB_ACTOR:$GITHUB_TOKEN" \
+  https://maven.pkg.github.com/BiciKletka/platform-bom/io/github/bicikletka/platform-parent/0.1.1/platform-parent-0.1.1.pom
+```
+
+Hosts that only run services (the Hetzner staging box) pull the images CI pushed to ghcr and need no
+`read:packages` token.
