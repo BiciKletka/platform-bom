@@ -18,13 +18,19 @@ remotemonit-gateway). One reactor, three published artifacts, one version:
 Versions are `0.<series>.<n>` (for example `0.1.3`). `.platform-series` holds the `MAJOR.MINOR` pair, and every
 push to `main` that changes more than docs publishes `<series>.<last+1>` to this repository's GitHub Packages
 Maven registry and pushes the tag `v<version>` (`publish.yml`). Pushes that only touch `docs/**`, `*.md`,
-`.gitattributes`, `.gitignore` or `.dockerignore` publish nothing.
+`.gitattributes`, `.gitignore`, `.dockerignore` or the CI-only files (`ci/**`, `scripts/**`, `.github/scripts/**`,
+`.github/workflows/ci.yml`, `.github/dependabot.yml`, `osv-scanner.toml`) publish nothing.
 
 - The tags are the record of what shipped (`git ls-remote --tags origin 'v*'`); the Packages tab shows the latest.
 - Publishing is serialized. After several quick merges GitHub cancels the pending middle run; the last run
   contains those commits, so no change is lost, but a version number is skipped. That is expected.
 - While the platform is at `0.x`, treat a series bump as breaking: edit `.platform-series` in the same PR as the
   breaking change. The first version of a new series is `<series>.1`.
+
+Every Dependabot `github-actions` bump to `publish.yml` mints a content-identical version, which reaches the
+services as a no-op Dependabot PR; merge or close it. The published `platform-parent` keeps
+`<revision>0.0.0-SNAPSHOT</revision>` as an inherited property: a service must never use `${revision}` without
+defining it, or it silently gets `0.0.0-SNAPSHOT`.
 
 ## Upgrading a service
 
