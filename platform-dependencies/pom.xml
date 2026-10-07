@@ -30,7 +30,7 @@
         <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
         <!-- Boot 4.1.1 manages Jackson 3.1.5 (same advisories as above); 3.1.7 fixes them. -->
         <jackson-bom.version>3.1.7</jackson-bom.version>
-        <lombok.version>1.18.46</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <!-- the Eclipse Paho MQTT v3 client mqtt-gateway talks to the broker with -->
         <paho.version>1.2.5</paho.version>

@@ -39,7 +39,7 @@
              configuration needs are repeated here. scripts/check-synced-properties.sh (run by ci.yml)
              fails when lombok.version, mapstruct.version or spring-boot.version differ from
              platform-dependencies. -->
-        <lombok.version>1.18.46</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <spring-boot.version>4.1.1</spring-boot.version>
 
