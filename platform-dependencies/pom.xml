@@ -21,7 +21,7 @@
         <archunit.version>1.5.1</archunit.version>
         <!-- AWS SDK v2: bici-media's object storage client is S3-compatible (MinIO dev, DO Spaces prod) -->
         <aws-sdk.version>2.29.29</aws-sdk.version>
-        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version>
         <!-- Jackson 2 stays on the runtime classpath through springdoc's swagger-core (it generates the
              OpenAPI document with it); Boot 4.1.1 manages 2.21.5, which has the same five advisories as
              Jackson 3.1.5 (GHSA-7hhh-6rmp-j9qf, GHSA-p6pp-m3f8-5c89, GHSA-cxp5-3px4-pw24,
