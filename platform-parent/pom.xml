@@ -33,7 +33,7 @@
              that declares one of the same name. What makes ${revision} safe is flatten-maven-plugin:
              the published POM carries the resolved literal in <version> and in the import below. -->
         <revision>0.0.0-SNAPSHOT</revision>
-        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version>
 
         <!-- A BOM import brings dependencyManagement but no properties, so the versions that plugin
              configuration needs are repeated here. scripts/check-synced-properties.sh (run by ci.yml)
