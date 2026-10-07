@@ -15,6 +15,13 @@ updates:
       include: scope
     labels:
       - dependencies
+    ignore:
+      # Jackson 2 is on the classpath only for swagger-core (springdoc). The Jackson 3 BOM, imported first,
+      # pins jackson-annotations to 2.21, so a 2.22+ databind would run against a skewed annotations
+      # version for no benefit. Patch and security updates still come through. Revisit when Jackson 2
+      # leaves the runtime classpath (BiciKletka/bici-core#161).
+      - dependency-name: com.fasterxml.jackson:jackson-bom
+        update-types: ['version-update:semver-minor']
     groups:
       # platform-parent repeats these versions of platform-dependencies; one PR keeps them in step
       # (scripts/check-synced-properties.sh fails CI otherwise).
