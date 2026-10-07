@@ -20,7 +20,7 @@
 
     <properties>
         <revision>0.0.0-SNAPSHOT</revision>
-        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
