@@ -80,7 +80,7 @@ jobs:
           mvn -B -q -Drevision=0.0.0-PR -f ci/resolved-set/pom.xml
           org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom
       - name: Scan the SBOM
-        uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
         # The scanner exits non-zero on any finding, medium included; the gate below decides.
         continue-on-error: true
         with:
